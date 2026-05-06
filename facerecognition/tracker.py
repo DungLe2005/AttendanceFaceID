@@ -78,36 +78,34 @@ class HTTPVideoCapture:
     def _reader_loop(self):
         while self.running:
             try:
-                chunk = self.stream.read(8192)
+                chunk = self.stream.read(16384) # Tăng chunk size để đọc nhanh hơn
                 if not chunk:
                     break
 
                 self.bytes_buf.extend(chunk)
-                latest_jpg = None
-
+                
+                # Tìm frame JPEG mới nhất trong buffer
                 while True:
                     start = self.bytes_buf.find(b"\xff\xd8")
-                    end = (
-                        self.bytes_buf.find(b"\xff\xd9", start + 2)
-                        if start != -1
-                        else -1
-                    )
+                    end = self.bytes_buf.find(b"\xff\xd9", start + 2) if start != -1 else -1
+                    
                     if start == -1 or end == -1:
                         break
+                    
                     latest_jpg = bytes(self.bytes_buf[start : end + 2])
                     del self.bytes_buf[: end + 2]
 
+                    if latest_jpg:
+                        frame = cv2.imdecode(
+                            np.frombuffer(latest_jpg, dtype=np.uint8), cv2.IMREAD_COLOR
+                        )
+                        if frame is not None:
+                            with self.lock:
+                                self.latest_frame = frame
+                                self.latest_seq += 1
+                
                 if len(self.bytes_buf) > MAX_MJPEG_BUFFER:
-                    del self.bytes_buf[: len(self.bytes_buf) - MAX_MJPEG_BUFFER]
-
-                if latest_jpg:
-                    frame = cv2.imdecode(
-                        np.frombuffer(latest_jpg, dtype=np.uint8), cv2.IMREAD_COLOR
-                    )
-                    if frame is not None:
-                        with self.lock:
-                            self.latest_frame = frame
-                            self.latest_seq += 1
+                    self.bytes_buf = self.bytes_buf[-MAX_MJPEG_BUFFER:]
             except Exception as e:
                 if self.running:
                     # Only print if it's not a common timeout to avoid spam
@@ -130,7 +128,7 @@ class HTTPVideoCapture:
                 ):
                     self.last_read_seq = self.latest_seq
                     return True, self.latest_frame.copy()
-            time.sleep(0.01)
+            time.sleep(0.001) # Giảm thời gian chờ để phản hồi nhanh hơn
 
         return False, None
 

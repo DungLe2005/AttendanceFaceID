@@ -1,15 +1,27 @@
 #include <esp32cam.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <FirebaseESP32.h>
+#include <time.h>
 
-const char* WIFI_SSID = "Huynh Chung";
-const char* WIFI_PASS = "0917155223";
+const char* WIFI_SSID = "PHCM_NCKH";
+const char* WIFI_PASS = "giangvien";
+
+// Cấu hình Firebase
+#define API_KEY "AIzaSyDc9DEnW10gZpK_asZDsv3zE0_IUqoNSIY"
+#define DATABASE_URL "ip-iot-b2664-default-rtdb.firebaseio.com"
+#define USER_EMAIL "iotbdu@gmail.com"
+#define USER_PASSWORD "123456"
+
+FirebaseData firebaseData;
+FirebaseJson json;
+FirebaseConfig config;
+FirebaseAuth auth;
 
 WebServer server(80);
 
 static auto loRes = esp32cam::Resolution::find(320, 240);
-static auto streamRes = esp32cam::Resolution::find(640, 480);
-static auto hiRes = esp32cam::Resolution::find(800, 600);
+static auto hiRes = esp32cam::Resolution::find(640, 480);
 
 void handleBmp()
 {
@@ -23,12 +35,16 @@ void handleBmp()
     server.send(503, "", "");
     return;
   }
+  Serial.printf("CAPTURE OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
+                static_cast<int>(frame->size()));
 
   if (!frame->toBmp()) {
     Serial.println("CONVERT FAIL");
     server.send(503, "", "");
     return;
   }
+  Serial.printf("CONVERT OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
+                static_cast<int>(frame->size()));
 
   server.setContentLength(frame->size());
   server.send(200, "image/bmp");
@@ -44,6 +60,8 @@ void serveJpg()
     server.send(503, "", "");
     return;
   }
+  Serial.printf("CAPTURE OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
+                static_cast<int>(frame->size()));
 
   server.setContentLength(frame->size());
   server.send(200, "image/jpeg");
@@ -75,44 +93,112 @@ void handleJpg()
 
 void handleMjpeg()
 {
-  if (!esp32cam::Camera.changeResolution(streamRes)) {
-    Serial.println("SET-STREAM-RES FAIL");
+  if (!esp32cam::Camera.changeResolution(hiRes)) {
+    Serial.println("SET-HI-RES FAIL");
   }
 
+  Serial.println("STREAM BEGIN");
   WiFiClient client = server.client();
-  esp32cam::Camera.streamMjpeg(client);
+  auto startTime = millis();
+  int res = esp32cam::Camera.streamMjpeg(client);
+  if (res <= 0) {
+    Serial.printf("STREAM ERROR %d\n", res);
+    return;
+  }
+  auto duration = millis() - startTime;
+  Serial.printf("STREAM END %dfrm %0.2ffps\n", res, 1000.0 * res / duration);
+}
+// Lấy ngày hiện tại
+String getCurrentDate() {
+    time_t now = time(nullptr);
+    struct tm* timeinfo = localtime(&now);
+
+    char buffer[11];
+    snprintf(buffer, sizeof(buffer), "%02d/%02d/%04d",
+             timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+
+    return String(buffer);
+}
+// Khởi tạo Firebase
+void initFirebase() {
+    Serial.println("Đang khởi tạo Firebase...");
+
+    config.api_key = API_KEY;
+    config.database_url = DATABASE_URL;
+    auth.user.email = USER_EMAIL;
+    auth.user.password = USER_PASSWORD;
+
+    Firebase.begin(&config, &auth);
+    Firebase.reconnectWiFi(true);
+
+    Serial.println("Đang chờ xác thực Firebase...");
+    int attempts = 0;
+    while (!Firebase.ready() && attempts < 30) {
+        Serial.print(".");
+        delay(500);
+        attempts++;
+    }
+    Serial.println();
+
+    if (Firebase.ready()) {
+        Serial.println("Xác thực Firebase thành công!");
+        sendIPToFirebase();
+    } else {
+        Serial.println("Xác thực Firebase thất bại. Kiểm tra lại thông tin.");
+    }
 }
 
+void sendIPToFirebase() {
+    if (!Firebase.ready()) {
+        Serial.println("Firebase chưa sẵn sàng. Không thể gửi IP.");
+        return;
+    }
+
+    String ipAddress = WiFi.localIP().toString();
+    String updatedAt = getCurrentDate();
+
+    json.clear();
+    json.set("device_name", "ESP32CAM1");
+    json.set("ip_address", ipAddress);
+    json.set("status", "Connected to WiFi");
+    json.set("updatedAt", updatedAt);
+
+    String path = "/devices/ESP32CAM1";
+
+    if (Firebase.setJSON(firebaseData, path, json)) {
+        Serial.println("Gửi địa chỉ IP lên Firebase thành công!");
+    } else {
+        Serial.println("Lỗi khi gửi địa chỉ IP lên Firebase: " + firebaseData.errorReason());
+    }
+}
 void setup()
 {
   Serial.begin(115200);
   Serial.println();
+  
+  {
+    using namespace esp32cam;
+    Config cfg;
+    cfg.setPins(pins::AiThinker);
+    cfg.setResolution(hiRes);
+    cfg.setBufferCount(2); // Duy trì 2 buffer để cân bằng bộ nhớ và tốc độ
+    cfg.setJpeg(12);       // Tăng chất lượng nén (0-63, 10-12 là mức cân bằng tốt)
 
-  using namespace esp32cam;
-  Config cfg;
-  cfg.setPins(pins::AiThinker);
-  cfg.setResolution(streamRes);
-  cfg.setBufferCount(2);
-  cfg.setJpeg(70);
-
-  bool ok = Camera.begin(cfg);
-  Serial.println(ok ? "CAMERA OK" : "CAMERA FAIL");
+    bool ok = Camera.begin(cfg);
+    Serial.println(ok ? "CAMERA OK" : "CAMERA FAIL");
+  }
 
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
   }
-
-  Serial.println("\nWiFi Connected!");
+  WiFi.setSleep(false); // Tắt tiết kiệm điện WiFi để giảm ping/latency
+  initFirebase();
+  sendIPToFirebase();
   Serial.print("http://");
   Serial.println(WiFi.localIP());
-
-  Serial.println("Endpoints:");
   Serial.println("  /cam.bmp");
   Serial.println("  /cam-lo.jpg");
   Serial.println("  /cam-hi.jpg");
