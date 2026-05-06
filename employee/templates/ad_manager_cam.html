@@ -1,0 +1,301 @@
+{% extends 'admin_base.html' %}
+
+{% block main %}
+
+<div class="container-fluid mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="fas fa-video text-primary"></i> Quản lý IP Camera (ESP32-CAM)</h3>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCamModal">
+            <i class="fa fa-plus"></i> Thêm Camera
+        </button>
+    </div>
+
+    <!-- Camera Grid -->
+    <div class="row" id="cameraGrid">
+        {% for cam in cams %}
+        <div class="col-md-6 col-lg-4 mb-4" id="cam-wrapper-{{ cam.id }}">
+            <div class="card shadow-sm cam-card border-{% if cam.status %}success{% else %}secondary{% endif %}" data-cam-id="{{ cam.id }}">
+                <div class="card-header d-flex justify-content-between align-items-center bg-{% if cam.status %}success text-white{% else %}light{% endif %}">
+                    <h6 class="mb-0">
+                        {{ cam.name }}
+                        <span class="badge bg-dark ms-1">{{ cam.get_cam_type_display }}</span>
+                    </h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-light text-dark" style="background:rgba(255,255,255,0.8)" data-bs-toggle="modal" data-bs-target="#editCamModal{{ cam.id }}">
+                            <i class="fa fa-edit"></i>
+                        </button>
+                        <a href="{% url 'delete_cam' cam.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Xóa camera này?');">
+                            <i class="fa fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-1 text-center cam-stream-area" style="background:#000; min-height: 220px; cursor:pointer;" onclick="openZoomModal({{ cam.id }}, '{{ cam.name|escapejs }}')">
+                    {% if cam.status %}
+                        <img
+                            src="{% url 'stream_cam' cam.id %}"
+                            data-stream-url="{% url 'stream_cam' cam.id %}"
+                            class="img-fluid cam-stream-img"
+                            draggable="false"
+                            id="cam-img-{{ cam.id }}">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100" style="min-height:220px;">
+                            <h6 class="text-muted"><i class="fa fa-video-slash"></i> Camera đang tắt</h6>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer small">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><strong>IP:</strong> {{ cam.ip_address }}</span>
+                        {% if cam.status %}
+                            <span class="text-success"><i class="fas fa-circle fa-xs"></i> Đang chạy</span>
+                        {% else %}
+                            <span class="text-secondary"><i class="far fa-circle"></i> Đã dừng</span>
+                        {% endif %}
+                    </div>
+                    <!-- Toggle switches cho Attendance & Tracking -->
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input toggle-feature" type="checkbox"
+                                id="att_{{ cam.id }}"
+                                data-cam="{{ cam.id }}" data-field="attendance_enabled"
+                                {% if cam.attendance_enabled %}checked{% endif %}>
+                            <label class="form-check-label small" for="att_{{ cam.id }}">
+                                <i class="fas fa-user-check"></i> Điểm danh
+                            </label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input toggle-feature" type="checkbox"
+                                id="trk_{{ cam.id }}"
+                                data-cam="{{ cam.id }}" data-field="tracking_enabled"
+                                {% if cam.tracking_enabled %}checked{% endif %}>
+                            <label class="form-check-label small" for="trk_{{ cam.id }}">
+                                <i class="fas fa-search"></i> Tracking
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Sửa Camera -->
+        <div class="modal fade" id="editCamModal{{ cam.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <form action="{% url 'edit_cam' cam.id %}" method="POST">
+                    {% csrf_token %}
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Sửa Camera: {{ cam.name }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Tên Camera</label>
+                                <input type="text" name="name" class="form-control" value="{{ cam.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Địa chỉ IP Stream</label>
+                                <input type="url" name="ip_address" class="form-control" value="{{ cam.ip_address }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Loại Camera</label>
+                                <select name="cam_type" class="form-select">
+                                    <option value="IN" {% if cam.cam_type == 'IN' %}selected{% endif %}>Điểm danh VÀO (IN)</option>
+                                    <option value="OUT" {% if cam.cam_type == 'OUT' %}selected{% endif %}>Điểm danh RA (OUT)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="status" id="edit_status{{ cam.id }}" {% if cam.status %}checked{% endif %}>
+                                <label class="form-check-label fw-bold text-success" for="edit_status{{ cam.id }}">Bật Stream</label>
+                            </div>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="attendance_enabled" id="edit_att{{ cam.id }}" {% if cam.attendance_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="edit_att{{ cam.id }}">Bật Điểm danh</label>
+                            </div>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="tracking_enabled" id="edit_trk{{ cam.id }}" {% if cam.tracking_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="edit_trk{{ cam.id }}">Bật Tracking (Người lạ)</label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center text-muted py-5">
+            <i class="fa fa-video-slash fa-3x mb-3"></i>
+            <h4>Chưa có Camera nào được thiết lập</h4>
+            <p>Vui lòng thêm địa chỉ IP ESP32-CAM để hệ thống nhận diện điểm danh.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal Zoom Camera -->
+<div class="modal fade" id="zoomModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white" id="zoomModalTitle">Camera</h5>
+                <button type="button" class="btn-close btn-close-white text-white" data-bs-dismiss="modal" aria-label="Close">
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="zoomImg" class="img-fluid" style="max-height: 80vh; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Thêm Camera -->
+<div class="modal fade" id="addCamModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{% url 'add_cam' %}" method="POST">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Thêm cấu hình IP Camera mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tên Camera</label>
+                        <input type="text" name="name" class="form-control" placeholder="Cam Cổng Trước" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Địa chỉ IP Stream</label>
+                        <input type="url" name="ip_address" class="form-control" placeholder="http://192.168.1.100/cam.mjpeg" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Loại Camera</label>
+                        <select name="cam_type" class="form-select" required>
+                            <option value="IN">Điểm danh VÀO (IN)</option>
+                            <option value="OUT">Điểm danh RA (OUT)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="status" id="status_new">
+                        <label class="form-check-label" for="status_new">Bật Stream ngay</label>
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="attendance_enabled" id="att_new" checked>
+                        <label class="form-check-label" for="att_new">Bật Điểm danh</label>
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="tracking_enabled" id="trk_new" checked>
+                        <label class="form-check-label" for="trk_new">Bật Tracking (Người lạ)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Xác nhận Thêm</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .cam-card { transition: all 0.3s ease; border-radius: 10px; overflow: hidden; }
+    .cam-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important; }
+    .cam-stream-area { position: relative; }
+    .cam-stream-img {
+        width: 100%;
+        height: 260px;
+        object-fit: contain;
+        background: #000;
+    }
+
+    /* Viền đỏ nhấp nháy khi phát hiện người lạ */
+    .cam-card.alert-unknown {
+        border: 3px solid #dc3545 !important;
+        animation: pulse-border 1s infinite;
+    }
+    @keyframes pulse-border {
+        0% { border-color: #dc3545; box-shadow: 0 0 5px rgba(220,53,69,0.5); }
+        50% { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(220,53,69,0.8); }
+        100% { border-color: #dc3545; box-shadow: 0 0 5px rgba(220,53,69,0.5); }
+    }
+</style>
+
+<script>
+    function getCSRF() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || "";
+    }
+
+    // Toggle Attendance/Tracking
+    document.querySelectorAll('.toggle-feature').forEach(el => {
+        el.addEventListener('change', function() {
+            const camId = this.dataset.cam;
+            const field = this.dataset.field;
+            const value = this.checked;
+
+            fetch(`/toggle_cam/${camId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRF(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ field, value })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) {
+                    showToast('Lỗi: ' + (res.error || 'Unknown'), 'danger');
+                    this.checked = !value; // revert
+                }
+            });
+        });
+    });
+
+    // Zoom Modal
+    function openZoomModal(camId, camName) {
+        const img = document.getElementById('cam-img-' + camId);
+        if (!img) return;
+        const modal = document.getElementById('zoomModal');
+        const zoomImg = document.getElementById('zoomImg');
+        zoomImg.src = img.dataset.streamUrl || img.src;
+        document.getElementById('zoomModalTitle').textContent = camName;
+        if (window.bootstrap && window.bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+        } else if (window.jQuery) {
+            $('#zoomModal').modal('show');
+        }
+    }
+
+    function clearZoomStream() {
+        document.getElementById('zoomImg').removeAttribute('src');
+    }
+
+    if (window.jQuery) {
+        $('#zoomModal').on('hidden.bs.modal', clearZoomStream);
+    } else {
+        const zoomModal = document.getElementById('zoomModal');
+        if (zoomModal) {
+            zoomModal.addEventListener('hidden.bs.modal', clearZoomStream);
+        }
+    }
+
+    // Auto-zoom khi phát hiện unknown >= 3
+    // (Chỉ hoạt động khi frontend gửi frame lên track-post-in và nhận phản hồi)
+    window.handleTrackResponse = function(camId, response) {
+        const card = document.querySelector(`[data-cam-id="${camId}"]`);
+        if (!card) return;
+
+        const hasAlertUnknown = response.people && response.people.some(
+            p => p.type === 'unknown' && (p.count || 0) >= 3
+        );
+
+        if (hasAlertUnknown) {
+            card.classList.add('alert-unknown');
+            // Tự động phóng to camera
+            const camName = card.querySelector('.card-header h6')?.textContent || 'Camera';
+            openZoomModal(camId, camName.trim());
+        } else {
+            card.classList.remove('alert-unknown');
+        }
+    };
+
+</script>
+
+{% endblock %}

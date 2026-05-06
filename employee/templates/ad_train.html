@@ -1,0 +1,266 @@
+{% extends 'admin_base.html' %}
+
+{% block main%}
+
+{% load static %}
+
+<div class="card shadow m-5">
+    <div class="card-body">
+        <h5 class="p-2 text-warning" style="border-bottom: 2px solid orange;">Train dữ liệu nhận diện khuôn mặt</h5>
+
+        <div class="container-fluid">
+            <form method="post" name="signupForm" id="signup-form" onsubmit="return checkpassword()">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="col-sm-12">
+                        <div class="form-group text-center">
+                            <label style="font-size: 20px; font-weight: bold;">Lịch sử train </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="training-status" style="display: none;">
+                    <p><strong class="loader">Đang train dữ liệu...</strong></p>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                            aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+                    </div>
+                </div>
+                <style>
+                    @keyframes load-loop {
+                        0% {
+                            background-position: 100%;
+                        }
+
+                        40% {
+                            background-position: 50%;
+                        }
+
+                        50% {
+                            background-position: 50%;
+                        }
+
+                        90% {
+                            background-position: 0%;
+                        }
+
+                        100% {
+                            background-position: 0%;
+                        }
+                    }
+
+                    .loader {
+                        position: relative;
+                        font-family: sans-serif;
+                        display: flex;
+                        height: auto;
+                        width: auto;
+                        letter-spacing: 3px;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 10px 12px;
+                        font-size: 1.45em;
+                        color: transparent;
+                        background: linear-gradient(to right, #fff 33.3%, #008cdd 33.3%, #008cdd 66.6%, #fff 66.6%) no-repeat;
+                        background-size: 300%;
+                        background-position: 100%;
+                        background-clip: text;
+                        -webkit-background-clip: text;
+                        animation: infinite 1.4s load-loop ease;
+                    }
+
+                    .loader::after {
+                        content: '';
+                        width: 100%;
+                        height: 100%;
+                        position: absolute;
+                        display: block;
+                        background: linear-gradient(to right, #008cdd 33.3%, transparent 33.3%, transparent 66.6%, #008cdd 66.6%) no-repeat;
+                        background-size: 300%;
+                        background-position: 100%;
+                        top: 0;
+                        left: 0;
+                        z-index: -1;
+                        animation: infinite 1.4s load-loop ease;
+                    }
+                </style>
+
+                <table class="table" id="training-log">
+
+                    <tbody>
+                        {% for train_datetime in train_datetimes %}
+                        <tr>
+                            <td>{{ train_datetime }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td>Không có thông tin ngày giờ train</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+
+                <button type="button" class="custom-btn btn" name="train-btn" id="train-btn" onclick="startTraining()">
+                    <span>Train</span>
+                </button>
+                <style>
+                    .custom-btn {
+                        width: 130px;
+                        height: 40px;
+                        color: #fff;
+                        border-radius: 5px;
+                        padding: 10px 25px;
+                        font-family: 'Lato', sans-serif;
+                        font-weight: 500;
+                        background: transparent;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        position: relative;
+                        display: inline-block;
+                        box-shadow: inset 2px 2px 2px 0px rgba(255, 255, 255, .5),
+                            7px 7px 20px 0px rgba(0, 0, 0, .1),
+                            4px 4px 5px 0px rgba(0, 0, 0, .1);
+                        outline: none;
+                    }
+
+                    .btn {
+                        background: linear-gradient(0deg, rgba(255, 151, 0, 1) 0%, rgba(251, 75, 2, 1) 100%);
+                        line-height: 42px;
+                        padding: 0;
+                        border: none;
+                    }
+
+                    .btn span {
+                        position: relative;
+                        display: block;
+                        width: 100%;
+                        height: 100%;
+                    }
+
+                    .btn:before,
+                    .btn:after {
+                        position: absolute;
+                        content: "";
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(251, 75, 2, 1);
+                        box-shadow: -7px -7px 20px 0px rgba(255, 255, 255, .9),
+                            -4px -4px 5px 0px rgba(255, 255, 255, .9),
+                            7px 7px 20px 0px rgba(0, 0, 0, .2),
+                            4px 4px 5px 0px rgba(0, 0, 0, .3);
+                        transition: all 0.3s ease;
+                    }
+
+                    .btn:before {
+                        height: 0%;
+                        width: 2px;
+                    }
+
+                    .btn:after {
+                        width: 0%;
+                        height: 2px;
+                    }
+
+                    .btn:hover {
+                        color: rgba(251, 75, 2, 1);
+                        background: transparent;
+                    }
+
+                    .btn:hover:before {
+                        height: 100%;
+                    }
+
+                    .btn:hover:after {
+                        width: 100%;
+                    }
+
+                    .btn span:before,
+                    .btn span:after {
+                        position: absolute;
+                        content: "";
+                        left: 0;
+                        top: 0;
+                        background: rgba(251, 75, 2, 1);
+                        box-shadow: -7px -7px 20px 0px rgba(255, 255, 255, .9),
+                            -4px -4px 5px 0px rgba(255, 255, 255, .9),
+                            7px 7px 20px 0px rgba(0, 0, 0, .2),
+                            4px 4px 5px 0px rgba(0, 0, 0, .3);
+                        transition: all 0.3s ease;
+                    }
+
+                    .btn span:before {
+                        width: 2px;
+                        height: 0%;
+                    }
+
+                    .btn span:after {
+                        height: 2px;
+                        width: 0%;
+                    }
+
+                    .btn span:hover:before {
+                        height: 100%;
+                    }
+
+                    .btn span:hover:after {
+                        width: 100%;
+                    }
+                </style>
+
+            </form>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function () {
+                    const trainingLog = document.getElementById('training-log');
+
+                    // Gửi yêu cầu lấy thông tin ngày giờ train
+                    fetch('/timetrain/')
+                        .then(response => response.json())
+                        .then(data => {
+                            const trainDatetimes = data.train_datetimes;
+                            let html = '';
+                            for (const datetime of trainDatetimes) {
+                                html += `<tr><td>${datetime}</td></tr>`;
+                            }
+                            if (html === '') {
+                                html = '<tr><td>Không có thông tin ngày giờ train</td></tr>';
+                            }
+                            trainingLog.innerHTML = html;
+                            trainingLog.style.display = 'table';
+                        })
+                        .catch(error => {
+                            console.error('Lỗi trong quá trình lấy thông tin ngày giờ train:', error);
+                            // Xử lý lỗi (ví dụ: hiển thị thông báo lỗi cho người dùng)
+                        });
+                });
+                function startTraining() {
+                    const trainButton = document.getElementById('train-btn');
+                    const trainingStatus = document.getElementById('training-status');
+                    const trainingLog = document.getElementById('training-log');
+
+                    // Ẩn nút Train và hiển thị thông báo Training
+                    trainButton.style.display = 'none';
+                    trainingStatus.style.display = 'block';
+
+                    // Gửi yêu cầu train dữ liệu
+                    fetch('/demorecognition/train/')
+                        .then(() => {
+                            // Quá trình train hoàn tất, chuyển hướng người dùng đến trang khác (ví dụ: trang chủ)
+                            window.location.href = 'http://localhost:8000/ad_train/';
+                        })
+                        .catch(error => {
+                            console.error('Lỗi trong quá trình train model:', error);
+                            // Xử lý lỗi (ví dụ: hiển thị thông báo lỗi cho người dùng)
+                        });
+                }
+
+                document.getElementById('train-btn').addEventListener('click', => {
+                    
+                });
+            </script>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

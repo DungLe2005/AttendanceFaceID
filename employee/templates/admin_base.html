@@ -1,0 +1,170 @@
+{% load static %}
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/interaction.min.js"></script>
+
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"
+        integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <style>
+        .list-group-item {
+            padding: 8px !important;
+        }
+
+        .message-box {
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            display: block;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.5s ease;
+        }
+    </style>
+
+
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src=" https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+    <script src=" https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+    <script src=" https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src=" https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src=" https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
+
+    <script>
+        $(document).ready(function () {
+            $('#example').DataTable({
+                dom: 'Bfrtip',
+                buttons: [
+                    'copyHtml5',
+                    'excelHtml5',
+                    'csvHtml5',
+                    'pdfHtml5'
+                ]
+            });
+        });
+    </script>
+
+</head>
+
+<body style="overflow-y: hidden;">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-2 p-0">
+                <center>
+                    <img src="{% static 'images/ad.png' %}" width="90" height="90"
+                        class="img-thumbnail rounded-circle my-3">
+                </center>
+
+                <div class="list-group">
+                    <a href="{% url 'admin_home' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '/admin_home/' %} active {% endif %}">
+                        <i class="fa fa-tachometer-alt"></i> Bảng điều khiển</a>
+                    <a href="{% url 'manager_users' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '' %} active {% endif %}">
+                        <i class="fa-solid fa-user-gear"></i> Quản lý người dùng </a>
+                    <a href="{% url 'manager_cam' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '/manager_cam/' %} active {% endif %}">
+                        <i class="fa-solid fa-video"></i> Quản lý Camera </a>
+                    <a href="{% url 'ad_attendance' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '' %} active {% endif %}">
+                        <i class="fas fa-calendar-check"></i> Quản lý điểm danh</a>
+                    <a href="{% url 'schedule_Page' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '' %} active {% endif %}">
+                        <i class="fas fa-calendar"></i> Quản lý lịch học</a>
+                    <a href="{% url 'device_dashboard' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '/device_dashboard/' %} active {% endif %}">
+                        <i class="fas fa-microchip"></i> Quản lý thiết bị</a>
+                    <a href="{% url 'ad_train' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '/ad_train/' %} active {% endif %}">
+                        <i class="fa fa-database"></i> Train dữ liệu</a>
+                    <a href="{% url 'logout' %}"
+                        class="list-group-item list-group-item-warning list-group-item-action {% if request.path == '/logout/' %} active {% endif %}">
+                        <i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
+
+                </div>
+            </div>
+            <div class="col-sm-10 p-0">
+                <div class="container-fluid p-2">
+                    <h5 class="text-center p-3 font-weight-bold"
+                        style="border-bottom: 2px solid green; border-top: 2px solid green ;">
+                        Hệ thống quản lý nhân viên</h5>
+
+                    <div class="card shadow" style="min-height: 90vh;">
+                        <div class="card-body">
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="message-box" style="background-color: {% if message.tags == 'success' %}#28a745{% else %}#dc3545{% endif %};">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            {% block main%}
+
+                            {% endblock main%}
+                             
+
+                            {% block modal %}
+                                
+                            {% endblock modal %}
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Hàm tự động ẩn các thông báo (alert và message-box)
+        function initAlertAutoHide(duration = 5000) {
+            setTimeout(function() {
+                $(".alert, .message-box").fadeOut("slow", function() {
+                    $(this).remove();
+                });
+            }, duration);
+        }
+
+        // Tự động chạy khi trang load xong
+        $(document).ready(function() {
+            initAlertAutoHide(5000);
+        });
+
+        // Hàm hiển thị thông báo Toast dùng .message-box
+        function showToast(message, type = 'success') {
+            const color = (type === 'success' || type === 'info') ? '#28a745' : '#dc3545';
+            const toastHtml = `
+                <div class="message-box" style="background-color: ${color}; position: relative;">
+                    ${message}
+                </div>
+            `;
+            // Chèn vào vị trí trên cùng của card-body
+            $('.card-body').first().prepend(toastHtml);
+            initAlertAutoHide(5000);
+        }
+    </script>
+</body>
+
+
+</html>

@@ -1,0 +1,469 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Đăng ký khuôn mặt</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #fff;
+      --card: #fff;
+      --accent: #0b67ff;
+      --success: #16a34a;
+      --danger: #ef4444;
+      --muted: #6b7280;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: var(--bg);
+      font-family: "Poppins", system-ui, sans-serif;
+      color: #111827;
+    }
+    .layout {
+      width: 100%;
+      max-width: 980px;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 8px 30px rgba(15,23,42,0.06);
+      border: 1px solid rgba(15,23,42,0.03);
+    }
+    h1 { font-size: 20px; margin-bottom: 8px; }
+    p.lead { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+    label { font-size: 13px; color: var(--muted); display: block; margin-top: 8px; }
+    input[type="text"] {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid #e5e7eb; margin-top: 6px; font-size: 14px;
+    }
+    select {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid #e5e7eb; margin-top: 6px; font-size: 14px;
+      background: white;
+    }
+    option { font-size: 14px; }
+    .gender-row { display: flex; gap: 16px; margin-top: 10px; align-items: center; }
+    .gender-row label { cursor: pointer; font-size: 14px; color: #374151; }
+    .btn {
+      width: 100%; padding: 12px; margin-top: 16px;
+      border: none; border-radius: 10px; cursor: pointer;
+      background: linear-gradient(90deg, #0b67ff, #4f9bff);
+      color: white; font-weight: 600;
+    }
+    .camera-card {
+      background: linear-gradient(180deg, #fff, #fbfdff);
+      border-radius: 14px; padding: 14px; border: 1px solid #f0f3f7;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .video-wrap { position: relative; width: 100%; max-width: 720px; height: 0; padding-bottom: 75%; }
+    video, canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      border-radius: 10px; object-fit: cover;
+    }
+    canvas { pointer-events: none; }
+    .info-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; width: 100%; }
+    .info-box {
+      flex: 1; background: #fff; border-radius: 10px;
+      padding: 10px 12px; border: 1px solid #eef3ff;
+      text-align: center; font-size: 14px;
+    }
+    .status { margin-top: 10px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 960px) { .layout { grid-template-columns: 1fr; max-width: 640px; } }
+  </style>
+</head>
+<body>
+  <div class="layout">
+
+    <!-- FORM -->
+    <div class="card">
+      <h1>Đăng ký khuôn mặt</h1>
+      <p class="lead">Nhập thông tin, sau đó nhấn “Đăng ký khuôn mặt” để bật camera và làm theo hướng dẫn.</p>
+
+      <form id="registerForm" method="POST">
+        {% csrf_token %}
+
+        <label for="roll">Vi trò</label>
+        <select id="roll" name="roll" required>
+          <option value="Student">Sinh viên</option>
+          <option value="Teacher">Giảng viên</option>
+        </select>
+        
+        <label for="name">Họ và tên</label>
+        <input id="name" name="name" type="text" placeholder="Nguyễn Văn A" required>
+
+        <label for="student_id">Mã nhân viên/sinh viên</label>
+        <input id="student_id" name="code" type="text" placeholder="PH12345" required>
+
+        <label for="class_name">Phòng ban/Lớp</label>
+        <input id="class_name" name="class_name" type="text" placeholder="DHTI15A" required>
+
+        <label>Giới tính</label>
+        <div class="gender-row">
+          <label><input type="radio" name="gender" value="Nam" required> Nam</label>
+          <label><input type="radio" name="gender" value="Nữ" required> Nữ</label>
+        </div>
+
+        <button id="startBtn" type="button" class="btn">Đăng ký khuôn mặt</button>
+      </form>
+    </div>
+
+    <!-- CAMERA AREA -->
+    <div class="camera-card">
+      <div class="video-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
+
+      <div class="info-row">
+        <div class="info-box" id="guideBox">Trạng thái: Chưa bắt đầu</div>
+        <div class="info-box" id="anglesBox">Yaw: 0 | Pitch: 0 | Roll: 0</div>
+        <div class="info-box" id="countBox">0 / 10</div>
+      </div>
+
+      <div class="status" id="statusText"></div>
+    </div>
+
+  </div>
+
+  <script type="module">
+  import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+
+  const startBtn = document.getElementById("startBtn");
+  const guideBox = document.getElementById("guideBox");
+  const anglesBox = document.getElementById("anglesBox");
+  const countBox = document.getElementById("countBox");
+  const statusText = document.getElementById("statusText");
+  const video = document.getElementById("video");
+  const overlay = document.getElementById("overlay");
+  const ctx = overlay.getContext("2d");
+
+  const ANGLES = [
+    { key: "center", count: 3, guide: { dx: 0, dy: 0, sx: 1, sy: 1 }},
+    { key: "center_far", count: 1, guide: { dx: 0, dy: 0, sx: 0.65, sy: 0.7 }},
+    { key: "right_slight", count: 1, guide: { dx: 0, dy: 0, sx: 1, sy: 1 }},
+    { key: "right", count: 1, guide: { dx: 0, dy: 0, sx: 1, sy: 1 }},
+    { key: "left_slight", count: 1, guide: { dx: 0, dy: 0, sx: 1, sy: 1 }},
+    { key: "left", count: 1, guide: { dx: 0, dy: 0, sx: 1, sy: 1 }},
+    { key: "down", count: 1, guide: { dx: 0, dy: 0, sx: 1, sy: 1.05 }},
+    { key: "up", count: 1, guide: { dx: 0, dy: 0, sx: 1, sy: 0.95 }},
+  ];
+
+  const VI_GUIDE = {
+    center: "Nhìn thẳng vào camera",
+    center_far: "Lùi đầu ra xa một chút",
+    right_slight: "Quay nhẹ sang trái",
+    right: "Quay hẳn sang trái",
+    left_slight: "Quay nhẹ sang phải",
+    left: "Quay hẳn sang phải",
+    down: "Cúi đầu nhìn xuống",
+    up: "Ngửa đầu nhìn lên"
+  };
+
+  const TOTAL_IMAGES = 10;
+  const HOLD_MS = 600;
+  const TOL = 25.0;
+
+  let faceLandmarker = null, stream = null, detecting = false, capturing = false, lostface = false;
+  let capturedImages = [], curAngleIdx = 0;
+  let holdStart = null;
+  let drawingUtils = null;
+  let angleShot = 0;
+
+  function setGuide(t){ guideBox.textContent = t; }
+  function setStatus(t,c){ statusText.textContent = t; if(c) statusText.style.color = c; }
+
+  async function initModel(){
+    setGuide("Đang tải model...");
+    const fileset = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
+    faceLandmarker = await FaceLandmarker.createFromOptions(fileset,{
+      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"},
+      runningMode:"VIDEO",
+      numFaces:1
+    });
+    drawingUtils = new DrawingUtils(ctx);
+    setGuide("Model sẵn sàng • Nhấn bắt đầu");
+  }
+
+  async function startCamera(){
+    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    await video.play();
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    detecting = true;
+    requestAnimationFrame(processFrame);
+  }
+
+  function stopCamera(){
+    detecting = false;
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+  }
+
+  function estimatePose(lm) {
+    const leftEye = lm[33];
+    const rightEye = lm[263];
+    const nose = lm[1];
+    const chin = lm[152];
+    const forehead = lm[10];
+
+    const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+
+    const faceWidth = dist(leftEye, rightEye);
+    const faceHeight = dist(forehead, chin);
+
+    // 🎯 Get rotation angles
+    const yaw = ((nose.x - 0.5) / faceWidth) * 40; 
+    const pitch = ((chin.y - nose.y) / faceHeight - 0.52) * 80;
+    const roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * 50;
+
+
+    return { yaw, pitch, roll, faceRatio: faceWidth};
+  }
+
+
+
+
+function clamp(v,min,max){ return Math.max(min, Math.min(max,v)); }
+
+// Dynamic threshold based on face size (faceRatio: 0.20–0.55)
+  function getDynamicThreshold(faceRatio) {
+    const scale = 1 + (faceRatio - 0.32) * 2.5;  
+    return {
+      yaw: Math.min(5, Math.max(18, 25 * scale)), 
+      pitch: Math.min(5, Math.max(15, 20 * scale)),
+      roll: Math.min(5, Math.max(10, 15 * scale)),
+    };
+  }
+
+  // Thay thế hàm getExpectedPose cũ bằng hàm này
+function getExpectedPose(a){
+  // faceRatio: khoảng cách giữa 2 mắt (đã normalize 0-1).
+  // 0.2 nghĩa là chiều rộng mặt chiếm 20% chiều rộng khung hình.
+  const d = {
+    // Center (Gần): Mặt phải to (từ 0.25 trở lên)
+    center:       {yaw:-1, pitch:-10, roll:-2, minRatio: 0.17, maxRatio: 0.2},
+    
+    // Center Far (Xa): Mặt phải nhỏ hơn (dưới 0.22)
+    center_far:   {yaw:-1,   pitch:-12, roll:-0, minRatio: 0.1, maxRatio: 0.15}, 
+    
+    // Các góc khác: cho phép khoảng cách linh hoạt hơn (ví dụ trung bình)
+    right_slight: {yaw:13,    pitch:-8,   roll:-3,  minRatio: 0.15, maxRatio: 0.6},
+    right:        {yaw:25,  pitch:-7,   roll:-2,  minRatio: 0.15, maxRatio: 0.6},
+    left_slight:  {yaw:-15,   pitch:-10,   roll:4,  minRatio: 0.15, maxRatio: 0.6},
+    left:         {yaw:-25,   pitch:-7,   roll:7,  minRatio: 0.15, maxRatio: 0.6},
+    down:         {yaw:2,    pitch:-19, roll:-1,  minRatio: 0.15, maxRatio: 0.6},
+    up:           {yaw:-5,    pitch:-1,   roll:-2,  minRatio: 0.15, maxRatio: 0.6}
+  };
+  return d[a];
+}
+
+  function withinTolerance(v,t,tol){ return Math.abs(v - t) <= tol; }
+
+  function drawGuideCircle(color = "rgba(0,145,255,0.9)") { 
+    const w = overlay.width; 
+    const h = overlay.height; 
+    const guide = ANGLES[curAngleIdx].guide || { dx: 0, dy: 0, sx: 1, sy: 1 }; 
+    const cx = w / 2 + guide.dx * w * 0.25; 
+    const cy = h / 1.55 + guide.dy * h * 0.25; 
+    const rx = w * 0.18 * guide.sx; 
+    const ry = h * 0.32 * guide.sy; 
+    ctx.beginPath(); 
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); 
+    ctx.lineWidth = 5; ctx.strokeStyle = color; 
+    ctx.stroke(); 
+  }
+
+  function drawLandmarks(lm){ 
+    drawingUtils.drawConnectors(lm, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color:"#fff", lineWidth:0.5 }); 
+    drawingUtils.drawConnectors(lm, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, { color:"#fff" }); 
+  }
+
+
+  async function processFrame(){
+    if(!detecting || !faceLandmarker) return;
+
+    const res = await faceLandmarker.detectForVideo(video, Date.now());
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+
+    if(!res.faceLandmarks?.length){
+      lostface = true;
+      setGuide("Không thấy khuôn mặt", "var(--danger)");
+      requestAnimationFrame(processFrame);
+      return;
+    }
+
+    if(lostface){
+      lostface = false;
+      setGuide("Khuôn mặt đã vào khung");
+      setGuide("➡ " + VI_GUIDE[ANGLES[curAngleIdx].key]);
+    }
+
+    const lm = res.faceLandmarks[0];
+    drawLandmarks(lm);
+    //const {yaw,pitch,roll} = estimatePose(lm);
+    // ... bên trong hàm processFrame, đoạn kiểm tra điều kiện ...
+
+    const pose = estimatePose(lm);
+    // faceRatio đã được tính trong estimatePose (dựa trên khoảng cách 2 mắt)
+    const { yaw, pitch, roll, faceRatio } = pose; 
+
+    // Lấy ngưỡng góc quay động
+    const { yaw: ty, pitch: tp, roll: tr } = getDynamicThreshold(faceRatio);
+    const exp = getExpectedPose(ANGLES[curAngleIdx].key);
+
+    // Kiểm tra góc quay
+    const okYaw = Math.abs(yaw - exp.yaw) <= ty;
+    const okPitch = Math.abs(pitch - exp.pitch) <= tp;
+    const okRoll = Math.abs(roll - exp.roll) <= tr;
+
+    // --- SỬA LOGIC KHOẢNG CÁCH TẠI ĐÂY ---
+    // Kiểm tra độ lớn khuôn mặt nằm trong khoảng min/max quy định
+    const okDist = (faceRatio >= exp.minRatio) && (faceRatio <= exp.maxRatio);
+    
+    const ok = okYaw && okPitch && okRoll && okDist;
+
+    let guideText = "";
+    if (!okDist) {
+        // Nếu mặt to hơn max -> quá gần -> lùi ra
+        if (faceRatio > exp.maxRatio) guideText = "Lùi ra xa một chút";
+        // Nếu mặt nhỏ hơn min -> quá xa -> lại gần
+        else guideText = "Tiến lại gần hơn";
+    } 
+    else if (!okYaw) {
+      guideText = yaw > exp.yaw ? "➡ Quay mặt sang phải" : "⬅ Quay mặt sang trái";
+    } 
+    else if (!okPitch) {
+      guideText = pitch > exp.pitch ? "Hạ cằm xuống" : "Ngẩng đầu lên";
+    } 
+    else if (!okRoll) {
+      guideText = roll > exp.roll ? "Nghiêng đầu phải" : "Nghiêng đầu trái";
+    } 
+    else {
+      guideText = "✔ Giữ yên!";
+    }
+    
+    // Cập nhật hiển thị debug để bạn dễ căn chỉnh
+    anglesBox.innerHTML = `
+      <b>Hướng:</b> ${guideText}<br>
+      <span style="font-size:12px; color:#777">
+        Y:${yaw.toFixed(0)} | P:${pitch.toFixed(0)}| R:${roll.toFixed(0)} | Ratio:${faceRatio.toFixed(3)}
+      </span>
+    `;
+
+
+    if (ok) {
+      guideBox.style.color = "var(--success)";
+      guideBox.style.fontWeight = "700";
+      if (!holdStart) holdStart = performance.now();
+      const angle = ANGLES[curAngleIdx];
+      if (performance.now() - holdStart >= HOLD_MS) {
+        captureImage(angle.key);
+        angleShot++;
+
+        if (angleShot >= angle.count) {
+          curAngleIdx++;
+          angleShot = 0;
+          if (curAngleIdx >= ANGLES.length) return finish();
+          setGuide("➡ " + VI_GUIDE[ANGLES[curAngleIdx].key]);
+        }
+        updateCount();
+        holdStart = null;
+      }
+    } else {
+      guideBox.style.color = "var(--muted)";
+      guideBox.style.fontWeight = "400";
+      holdStart = null;
+    }
+
+    // Add green ring if correct
+    drawGuideCircle(ok ? "lime" : "rgba(255,255,255,0.5)");
+
+    requestAnimationFrame(processFrame);
+  }
+
+  function updateCount(){
+    const c = capturedImages.length;
+    countBox.textContent = `${c} / ${TOTAL_IMAGES}`;
+  }
+
+  function captureImage(label){
+    const c = document.createElement("canvas");
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext("2d").drawImage(video,0,0,c.width,c.height);
+    const data = c.toDataURL("image/jpeg",0.9);
+    capturedImages.push({angle:label,image:data});
+  }
+
+  async function finish(){
+    capturing = false;
+    detecting = false;
+    stopCamera();
+    setGuide("Đã chụp đủ ảnh!");
+    console.log("Images:", capturedImages);
+    await sendData();
+  }
+
+  function sendData(){
+    const formData = new FormData(document.getElementById("registerForm"));
+    formData.append("images", JSON.stringify(capturedImages));
+
+    fetch("{% url 'register' %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if(data.success){
+        setStatus("Đăng ký thành công!", "var(--success)");
+        setTimeout(()=>{ window.location.href = "/"; }, 1500);
+      } else {
+        setStatus("Lỗi: " + data.message, "var(--danger)");
+      }
+    })
+    .catch(err => {
+      setStatus("Lỗi mạng: " + err, "var(--danger)");
+    });
+  }
+
+  startBtn.addEventListener("click", async()=>{
+    const name = document.getElementById("name").value.trim();
+    const code = document.getElementById("student_id").value.trim();
+    const class_name = document.getElementById("class_name").value.trim();
+    const gender = document.querySelector('input[name="gender"]:checked')?.value;
+    const roll = document.getElementById("roll").value;
+    if(!name || !code || !class_name || !gender || !roll){
+      alert("Vui lòng điền đầy đủ thông tin trước khi đăng ký khuôn mặt.");
+      return;
+    }
+
+    
+    if(!faceLandmarker) await initModel();
+    await startCamera();
+    capturedImages = [];
+    curAngleIdx = 0;
+    angleShot = 0;
+    capturing = true;
+    updateCount();
+    setGuide("➡ " + VI_GUIDE[ANGLES[0].key]);
+  });
+
+  window.addEventListener("beforeunload",()=>stopCamera());
+</script>
+
+</body>
+</html>

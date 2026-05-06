@@ -1,0 +1,64 @@
+
+	<!-- Thêm Bootstrap CSS -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" integrity="sha384-7HpyaUPM1P4xhJ0gLgKzE0YZ9wlW5SbSgPuB0G0wK5Ly5W/oGbgxOyee6UAgv6z9" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.3/dist/jquery.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h1 class="text-center mb-4">Nhận diện khuôn mặt</h1>
+                <form method="POST" id="run" action="{% url 'run_recognition' %}">
+                  {% csrf_token %}
+                  <div class="text-center">
+                    <button type="submit" class="btn btn-primary" name="run" id="camera-button" disabled><i class="fa fa-check-square-o"></i> Mở camera</button>
+                  </div>
+                </form> 
+
+                <form method="POST" id="run_detection" >
+                  {% csrf_token %}
+                  <div class="text-center">
+                    <button type="submit" class="btn btn-primary btn-flat" name="run_detection"><i class="fa fa-check-square-o"></i>Nhập tên</button>
+                  </div>
+                </form>
+
+                <h1 class="text-center mb-4">data process, augmentation, Train</h1>
+                <form method="POST" id="run_train" action="{% url 'run_train' %}">
+                  {% csrf_token %}
+                  <div class="text-center">
+                    <button type="submit" class="btn btn-primary" name="runtrain" id="camera-button" ><i class="fa fa-check-square-o"></i> Train</button>
+                  </div>
+                </form> 
+              <style>
+                  .inline-button {
+                    display: inline-block;
+                  }
+              </style>
+              <script>
+                const runDetectionForm = document.getElementById('run_detection');
+                const cameraButton = document.getElementById('camera-button');
+                
+                runDetectionForm.addEventListener('submit', (event) => {
+                  event.preventDefault();
+                  var folderName = prompt("Mời bạn nhập tên của mình, lưu ý viết tên không dấu:");
+                  if (folderName != null && folderName.trim() != "") {
+                      // Tạo một thư mục mới với tên vừa nhập vào
+                      fetch('./demorecognition/face_detection/?name=' + folderName)
+                      //
+                      .then(response => {
+                          
+                      })
+            
+                  }
+                });
+              </script> 
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+

@@ -1,0 +1,345 @@
+{% extends 'admin_base.html' %}
+
+{% block main %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --secondary-bg: #f8f9fa;
+        --card-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        --accent-color: #4e73df;
+    }
+
+    .user-management-container {
+        padding: 1.5rem;
+        background-color: #f4f7f6;
+        min-height: 100%;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 0;
+    }
+
+    .stats-badge {
+        background: white;
+        padding: 0.5rem 1.25rem;
+        border-radius: 50px;
+        box-shadow: var(--card-shadow);
+        font-weight: 600;
+        color: var(--accent-color);
+        border: 1px solid rgba(78, 115, 223, 0.1);
+    }
+
+    .filter-card {
+        background: white;
+        border-radius: 15px;
+        border: none;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+    }
+
+    .filter-card .form-control, .filter-card .form-select {
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        padding: 0.6rem 1rem;
+        transition: all 0.2s;
+    }
+
+    .filter-card .form-control:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.1);
+    }
+
+    .btn-custom-primary {
+        background: var(--primary-gradient);
+        border: none;
+        color: white;
+        padding: 0.6rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: transform 0.2s;
+    }
+
+    .btn-custom-primary:hover {
+        transform: translateY(-2px);
+        color: white;
+        opacity: 0.9;
+    }
+
+    .btn-custom-secondary {
+        background: #edf2f7;
+        color: #4a5568;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .user-table-card {
+        background: white;
+        border-radius: 15px;
+        border: none;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background-color: #f8fafc;
+        border-bottom: 2px solid #edf2f7;
+        color: #718096;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .table tbody td {
+        padding: 1.25rem 1.5rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        color: #4a5568;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .avatar-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .role-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-block;
+    }
+
+    .role-admin { background: #ebf4ff; color: #3182ce; }
+    .role-teacher { background: #f0fff4; color: #38a169; }
+    .role-student { background: #fffaf0; color: #dd6b20; }
+    .role-default { background: #f7fafc; color: #4a5568; }
+
+    .action-buttons .btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        margin-left: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .btn-delete { color: #e53e3e; background: #fff5f5; border: none; }
+    .btn-delete:hover { background: #e53e3e; color: white; }
+
+    .btn-permission { color: #3182ce; background: #ebf4ff; border: none; }
+    .btn-permission:hover { background: #3182ce; color: white; }
+
+    .pagination-container {
+        margin-top: 2rem;
+    }
+
+    .pagination .page-link {
+        border: none;
+        color: #718096;
+        margin: 0 3px;
+        border-radius: 8px !important;
+        font-weight: 600;
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary-gradient);
+        color: white;
+    }
+</style>
+
+<div class="user-management-container">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h3 class="page-title">Quản lý người dùng</h3>
+        <div class="stats-badge">
+            <i class="fas fa-users mr-2"></i> Tổng số: {{ total }}
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card">
+        <form class="row g-3" method="GET">
+            <div class="col-md-3">
+                <label class="form-label text-muted small font-weight-bold">Họ và Tên</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-right-0"><i class="fas fa-user text-muted"></i></span>
+                    <input type="text" name="name" class="form-control border-left-0"
+                        placeholder="Tìm theo tên..." value="{{ name_query }}">
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label text-muted small font-weight-bold">Mã số</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-right-0"><i class="fas fa-id-card text-muted"></i></span>
+                    <input type="text" name="code" class="form-control border-left-0"
+                        placeholder="Nhập mã số..." value="{{ code_query }}">
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label text-muted small font-weight-bold">Vai trò</label>
+                <select name="roll" class="form-select">
+                    <option value="">Tất cả vai trò</option>
+                    <option value="Admin" {% if roll_query == "Admin" %}selected{% endif %}>Quản trị viên</option>
+                    <option value="Teacher" {% if roll_query == "Giáo viên" %}selected{% endif %}>Giáo viên</option>
+                    <option value="Student" {% if roll_query == "Sinh viên" %}selected{% endif %}>Sinh viên</option>
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-custom-primary w-100 mr-2" type="submit">
+                    <i class="fas fa-filter mr-2"></i> Lọc
+                </button>
+                <a href="{% url 'manager_users' %}" class="btn btn-custom-secondary">
+                    <i class="fas fa-undo"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- User Table -->
+    <div class="user-table-card">
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Người dùng</th>
+                        <th>Mã số</th>
+                        <th>Vai trò</th>
+                        <th class="text-right">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% if users %}
+                    {% for user in users %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-wrapper mr-3">
+                                        <img src="{{ user.face_image.url }}" class="avatar-img" alt="{{ user.full }}">
+                                    </div>
+                                    <div>
+                                        <div class="font-weight-bold text-dark">{{ user.full }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-light p-2 font-weight-normal" style="border: 1px solid #ffffffff; color: #343b43ff;">{{ user.emcode }}</span>
+                            </td>
+                            <td>
+                                {% if user.roll == "Admin" %}
+                                    <span class="role-badge role-admin">Quản trị viên</span>
+                                {% elif user.roll == "Giáo viên" or user.roll == "Teacher" %}
+                                    <span class="role-badge role-teacher">Giáo viên</span>
+                                {% elif user.roll == "Sinh viên" or user.roll == "Student" %}
+                                    <span class="role-badge role-student">Sinh viên</span>
+                                {% else %}
+                                    <span class="role-badge role-default">{{ user.roll }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <div class="action-buttons">
+                                    <a href="{% url 'update_Permission' user.id %}" class="btn btn-permission" title="Cấp quyền">
+                                        <i class="fas fa-shield-alt"></i>
+                                    </a>
+                                    <a href="{% url 'delete_user' user.id %}"
+                                       class="btn btn-delete"
+                                       title="Xóa người dùng"
+                                       onclick="return confirm('Bạn có chắc chắn muốn xóa người dùng này không?');">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <div class="mb-2"><i class="fas fa-user-slash fa-3x opacity-2"></i></div>
+                            Không tìm thấy người dùng nào phù hợp.
+                        </td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-container d-flex justify-content-center">
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination shadow-sm">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&name={{ name_query }}&code={{ code_query }}&roll={{ roll_query }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-left"></i></span></li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}&name={{ name_query }}&code={{ code_query }}&roll={{ roll_query }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&name={{ name_query }}&code={{ code_query }}&roll={{ roll_query }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-right"></i></span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

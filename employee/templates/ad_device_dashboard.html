@@ -1,0 +1,312 @@
+{% extends 'admin_base.html' %}
+
+{% block main %}
+
+<div class="container-fluid mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-microchip text-primary"></i> Quản lý Thiết bị</h3>
+        <div>
+            <button class="btn btn-primary btn-sm me-2" onclick="openAddDeviceModal('')">
+                <i class="fas fa-plus"></i> Thêm Phòng mới
+            </button>
+            <span class="badge bg-info text-dark" id="lastUpdate">Đang tải...</span>
+        </div>
+    </div>                      
+
+    <!-- Modal Thêm Thiết bị -->
+    <div class="modal fade" id="addDeviceModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle"></i> Thêm Thiết bị mới</h5>
+                </div>
+                <div class="modal-body">
+                    <form id="addDeviceForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tên Thiết bị</label>
+                            <input type="text" id="devName" class="form-control" placeholder="Ví dụ: Quạt 1, LED Cửa..." required>
+                        </div>
+                        <div class="mb-3" id="roomInputDiv">
+                            <label class="form-label fw-bold">Phòng (Số)</label>
+                            <input type="number" id="devRoom" class="form-control" placeholder="Ví dụ: 101" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Địa chỉ IP ESP32</label>
+                            <input type="text" id="devIP" class="form-control" placeholder="Ví dụ: 192.168.1.100">
+                            <small class="text-muted">Dùng chung IP cho các thiết bị cùng phòng.</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitAddDevice()">Lưu thiết bị</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row" id="roomsContainer">
+        <!-- Rooms will be rendered by JS -->
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Đang tải dữ liệu thiết bị...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .device-card {
+        transition: all 0.3s ease;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .device-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    .device-icon {
+        font-size: 3rem;
+        transition: all 0.3s ease;
+    }
+    .device-icon.on {
+        color: #28a745;
+        animation: pulse-green 2s infinite;
+    }
+    .device-icon.off {
+        color: #adb5bd;
+    }
+    @keyframes pulse-green {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+    }
+    .room-card {
+        border-left: 4px solid #007bff;
+        border-radius: 10px;
+    }
+    .status-dot {
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .status-dot.on { background-color: #28a745; }
+    .status-dot.off { background-color: #adb5bd; }
+</style>
+
+<script>
+    function getDeviceIcon(name) {
+        const n = name.toLowerCase();
+        if (n.includes('quạt') || n.includes('quat') || n.includes('fan')) return 'fas fa-fan';
+        if (n.includes('led') || n.includes('đèn') || n.includes('den')) return 'fas fa-lightbulb';
+        return 'fas fa-plug';
+    }
+
+    function renderDashboard(devices) {
+        const container = document.getElementById('roomsContainer');
+        // Group devices by room
+        const rooms = {};
+        devices.forEach(d => {
+            if (!rooms[d.room]) rooms[d.room] = [];
+            rooms[d.room].push(d);
+        });
+
+        if (Object.keys(rooms).length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="fas fa-plug fa-3x mb-3"></i>
+                    <h5>Chưa có thiết bị nào trong hệ thống</h5>
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        for (const [room, devs] of Object.entries(rooms)) {
+            const allOn = devs.every(d => d.status === 'on');
+            const anyOn = devs.some(d => d.status === 'on');
+            const statusColor = allOn ? 'success' : (anyOn ? 'warning' : 'secondary');
+
+            html += `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card room-card shadow-sm h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-door-open text-primary"></i> Phòng ${room}</h5>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-danger me-1" onclick="toggleRoom('${room}', 'off')" title="Tắt toàn bộ thiết bị phòng ${room}">
+                                <i class="fas fa-power-off"></i> Tắt hết
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="openAddDeviceModal('${room}')" title="Thêm thiết bị cho phòng ${room}">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">`;
+
+            devs.forEach(d => {
+                const isOn = d.status === 'on';
+                const icon = getDeviceIcon(d.name);
+                const spinClass = (icon === 'fas fa-fan' && isOn) ? 'fa-spin' : '';
+                html += `
+                    <div class="col-6 mb-3">
+                        <div class="device-card card border-0 shadow-sm p-3" id="dev-${d.id}">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="sw-${d.id}" ${isOn ? 'checked' : ''} onchange="toggle_device(${d.id})">
+                                    <label class="form-check-label small fw-bold" for="sw-${d.id}">${isOn ? 'ON' : 'OFF'}</label>
+                                </div>
+                                <button class="btn btn-sm text-danger p-0 border-0" onclick="delete_device(${d.id})" title="Xóa thiết bị">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </div>
+                            <div class="cursor-pointer" onclick="toggle_device(${d.id})">
+                                <i class="${icon} ${spinClass} device-icon ${isOn ? 'on' : 'off'}"></i>
+                                <div class="mt-2 fw-bold text-truncate" title="${d.name}">${d.name}</div>
+                                <div class="small text-muted mt-1">
+                                    <span class="ip-display" id="ip-text-${d.id}">${d.ip_address || 'Chưa có IP'}</span>
+                                    <i class="fas fa-edit ms-1 cursor-pointer edit-ip-btn" onclick="editIP(${d.id}, '${d.ip_address || ''}')" title="Sửa IP"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    function fetchStatus() {
+        fetch('/api/device/status/')
+            .then(r => r.json())
+            .then(data => {
+                renderDashboard(data.devices);
+                document.getElementById('lastUpdate').textContent =
+                    'Cập nhật: ' + new Date().toLocaleTimeString('vi-VN');
+            })
+            .catch(err => console.error('Lỗi lấy trạng thái:', err));
+    }
+
+    function delete_device(id) {
+        if(confirm('Bạn có chắc muốn xóa?')) {
+            fetch(`/delete_device/${id}/`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if(data.ok) fetchStatus();
+            });
+        }
+    }
+
+    function toggle_device(id) {
+        fetch(`/toggle_device/${id}/`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    fetchStatus(); // Cập nhật UI ngay
+                }
+            })
+            .catch(err => console.error('Lỗi toggle:', err));
+    }
+
+    function toggleRoom(room, status) {
+        const action = status === 'off' ? 'tắt' : 'bật';
+        if(confirm(`Bạn có chắc muốn ${action} toàn bộ thiết bị trong phòng ${room}?`)) {
+            const formData = new FormData();
+            formData.append('status', status);
+            fetch(`/toggle_room/${room}/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) fetchStatus();
+                else showToast("Lỗi: " + data.error, "danger");
+            })
+            .catch(err => console.error('Lỗi toggle room:', err));
+        }
+    }
+
+    function editIP(id, currentIP) {
+        const newIP = prompt("Nhập địa chỉ IP mới cho ESP32:", currentIP);
+        if (newIP !== null) {
+            fetch(`/api/device/update-ip/${id}/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip_address: newIP })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) fetchStatus();
+                else showToast("Lỗi: " + data.error, "danger");
+            });
+        }
+    }
+
+    function openAddDeviceModal(roomNumber) {
+        document.getElementById('devRoom').value = roomNumber;
+        const roomDiv = document.getElementById('roomInputDiv');
+        if (roomNumber) {
+            roomDiv.style.display = 'none';
+        } else {
+            roomDiv.style.display = 'block';
+        }
+        $('#addDeviceModal').modal('show');
+    }
+
+    function submitAddDevice() {
+        const nameInput = document.getElementById('devName');
+        const roomInput = document.getElementById('devRoom');
+        const name = nameInput.value.trim();
+        const room = roomInput.value.trim();
+        
+        if(!name || !room) {
+            showToast('Vui lòng nhập đầy đủ thông tin', 'warning');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('room', room);
+        formData.append('ip_address', document.getElementById('devIP').value.trim());
+
+        fetch('/device/new/', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(async response => {
+            const isJson = response.headers.get('content-type')?.includes('application/json');
+            const data = isJson ? await response.json() : null;
+
+            if (!response.ok) {
+                throw new Error(data?.error || `Server error: ${response.status}`);
+            }
+            return data;
+        })
+        .then(data => {
+            if(data && data.ok) {
+                $('#addDeviceModal').modal('hide');
+                nameInput.value = ''; // Reset name
+                fetchStatus();
+                showToast('Thêm thiết bị thành công!', 'success');
+            } else {
+                showToast('Lỗi: ' + (data?.error || 'Không thể thêm thiết bị'), 'danger');
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi add device:', err);
+            showToast('Lỗi hệ thống: ' + err.message, 'danger');
+        });
+    }
+
+    // Lần đầu + polling mỗi 2 giây
+    fetchStatus();
+    setInterval(fetchStatus, 2000);
+</script>
+
+{% endblock %}

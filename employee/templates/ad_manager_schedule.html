@@ -1,0 +1,502 @@
+{% extends 'admin_base.html' %}
+
+{% block main %}
+
+<div class="container-fluid mt-3 d-flex" style="height: 95vh; gap: 15px;">
+
+    <!-- Sidebar thẻ -->
+    <div class="flex-shrinak-0" style="width: 320px; overflow-y:auto;">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <strong>Danh sách thẻ</strong>
+                <button id="open_add_modal" class="btn btn-light btn-sm">Thêm</button>
+            </div>
+            <form method="GET" class="p-2">
+                <input type="text" name="search" class="form-control" placeholder="Tìm thẻ..."
+                       value="{{ request.GET.search|default:'' }}">
+                <button type="submit" class="btn btn-primary btn-sm mt-2 w-100">Tìm kiếm</button>
+            </form>
+            <div class="card-body p-2">
+                <div id="external-events" class="border rounded p-2" style="min-height:200px; background:#f0f2f5;">
+                    {% if tags %}
+                        {% for tag in tags %}
+                            <div class="fc-event p-3 mb-2 bg-info text-white rounded shadow-sm"
+                                 data-id="{{ tag.id }}"
+                                 data-title="{{ tag.title }}"
+                                 data-start="{{ tag.start_time|time:'H:i' }}"
+                                 data-end="{{ tag.end_time|time:'H:i' }}"
+                                 data-classname="{{ tag.classname }}"
+                                 data-room="{{ tag.room }}"
+                                 data-teacher="{{ tag.teacher }}"
+                                 ondblclick="openEditTag(this)">
+                                <div class="fw-bold">{{ tag.title }}</div>
+                                <div class="small text-light">
+                                    {{ tag.start_time|time:"H:i" }} - {{ tag.end_time|time:"H:i" }}
+                                </div>
+                                <div class="small">Phòng: {{ tag.room }} | GV: {{ tag.teacher }}</div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <small class="text-muted">Chưa có thẻ nào</small>
+                    {% endif %}
+                </div>
+                <small class="text-muted d-block mt-2">Kéo thả thẻ vào lịch để tạo sự kiện.<br>Nhấn 2 lần để sửa thông tin.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="flex-grow-1 d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <button id="prev_week" class="btn btn-secondary btn-sm">&lt; Tuần trước</button>
+            <div class="d-flex align-items-center gap-2">
+                <input type="date" id="jump_date" class="form-control form-control-sm">
+                <span id="current_week_label" class="fw-bold"></span>
+            </div>
+            <button id="next_week" class="btn btn-secondary btn-sm">Tuần sau &gt;</button>
+        </div>
+        <div class="border rounded p-2 flex-grow-1 overflow-auto">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Thêm/Sửa Thẻ -->
+<div class="modal fade" id="tagModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Thêm / Sửa thẻ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_tag_id">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Tên buổi học</label>
+                    <input type="text" id="tag_title" class="form-control">
+                </div>
+                <div class="row mb-3">
+                    <div class="col">
+                        <label class="form-label fw-bold">Bắt đầu</label>
+                        <input id="tag_start" class="form-control" max="23:59" min="00:00">
+                    </div>
+                    <div class="col">
+                        <label class="form-label fw-bold">Kết thúc</label>
+                        <input id="tag_end"class="form-control" max="23:59" min="00:00">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Lớp</label>
+                    <input type="text" id="tag_class" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Phòng</label>
+                    <select id="tag_room" class="form-select">
+                        <option value="">-- Chọn phòng --</option>
+                        {% for room in rooms %}
+                            <option value="{{ room }}">{{ room }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Giáo viên</label>
+                    <input type="text" id="tag_teacher" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button id="delete_tag" class="btn btn-danger d-none">Xóa thẻ</button>
+                <button id="save_tag" class="btn btn-primary">Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    // CSRF
+    function getCSRF() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || "";
+    }
+
+    async function postData(url, data) {
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCSRF(),
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+            return await res.json();
+        } catch(err) {
+            console.error(err);
+            return { error: err.message };
+        }
+    }
+
+    // --- FLATPICKR SAFE INIT ---
+    const startEl = document.getElementById("tag_start");
+    const endEl = document.getElementById("tag_end");
+
+    function safeInitFlatpickr(el, opts) {
+        // Nếu đã init -> trả về instance hiện có (không destroy)
+        if (el && el._flatpickr) {
+            console.log("flatpickr: tái sử dụng phiên bản hiện có cho", el.id);
+            return el._flatpickr;
+        }
+        // Merged options with safe onOpen guard
+        const safeOpts = Object.assign({}, opts, {
+            onOpen: function(selectedDates, dateStr, instance) {
+                // bảo vệ chống re-entrancy: nếu đang mở thì return
+                if (instance._opening) return;
+                instance._opening = true;
+                // reset flag sau một khoảng nhỏ
+                setTimeout(()=> { instance._opening = false; }, 100);
+                if (typeof opts.onOpen === "function") try { opts.onOpen.apply(this, arguments); } catch(e){console.error(e)}
+            }
+        });
+        const inst = flatpickr(el, safeOpts);
+        console.log("flatpickr: khởi tạo phiên bản mới cho", el.id);
+        return inst;
+    }
+
+    // init once (no destroy)
+    window.startPicker = safeInitFlatpickr(startEl, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: "H:i",
+        time_24hr: true,
+        clickOpens: true,
+        allowInput: true,
+        // IMPORTANT: không gọi instance.open() trong callbacks
+    });
+
+    window.endPicker = safeInitFlatpickr(endEl, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: "H:i",
+        time_24hr: true,
+        clickOpens: true,
+        allowInput: true
+    });
+
+    // FullCalendar Init
+    const calendarEl = document.getElementById("calendar");
+    let editingTag = null;
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: "dayGridWeek",
+        timeZone: "Asia/Ho_Chi_Minh",
+        editable: true,
+        selectable: true,
+        displayEventEnd: true,
+        eventTimeFormat: {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+        },
+        firstDay: 1,
+        droppable: true,
+        headerToolbar: false,
+        eventContent: function(arg) {
+            const e = arg.event;
+
+            function fmt(date) {
+                if (!date) return "";
+                
+                // Trừ 7 giờ (múi giờ VN)
+                const fixed = new Date(date.getTime() - 7 * 3600 * 1000);
+
+                const h = fixed.getHours().toString().padStart(2, '0');
+                const m = fixed.getMinutes().toString().padStart(2, '0');
+                return `${h}:${m}`;
+            }
+
+            const start = fmt(e.start);
+            const end = fmt(e.end);
+
+            return {
+                html: `
+                <div style="font-size:0.8rem;">
+                    <strong>${e.title}</strong><br>
+                    ${start} - ${end}<br>
+                    <small>${e.extendedProps.room || ''} | ${e.extendedProps.teacher || ''}</small>
+                </div>`
+            };
+        },
+
+
+        eventReceive: function (info) {
+    const e = info.event;
+    const props = e.extendedProps;
+
+    const dropDate = e.start;
+    const dateStr = dropDate.toISOString().split("T")[0];
+
+    const start_time = (props.startTimeParts || ["08", "00"]).join(":");
+    const end_time = (props.endTimeParts || ["09", "00"]).join(":");
+
+    console.log("EVENT RECEIVED:", {
+        title: e.title,
+        date: dateStr,
+        start_time,
+        end_time,
+        room: props.room,
+        teacher: props.teacher,
+        classname: props.Class
+    });
+
+    const payload = {
+        title: e.title,
+        date: dateStr,
+        start_time,
+        end_time,
+        room: props.room || "",
+        teacher: props.teacher || "",
+        classname: props.Class || ""
+    };
+
+    console.log("PAYLOAD SEND:", payload);
+
+    fetch("/save_Event/", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": getCSRF(),
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error && res.error !== false) {
+            showToast(res.error, "danger");
+            e.remove();
+        } else {
+            console.log("✔ Lưu lịch thành công", res);
+            location.reload();
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast("Server không phản hồi", "danger");
+        e.remove();
+    });
+},
+
+       events: function (fetchInfo, successCallback) {
+            fetch("/get_events/")
+                .then(r => r.json())
+                .then(data => {
+                    console.log("EVENTS RAW:", data);
+
+                    const events = data.map(item => ({
+                        id: item.id,
+                        title: item.title,
+                        start: item.start,
+                        end: item.end,
+                        allDay: false,
+                        extendedProps: item.extendedProps
+                    }));
+
+                    console.log("EVENTS PARSED:", events);
+
+                    successCallback(events);
+                })
+                .catch(err => {
+                    console.error("GET EVENTS ERROR:", err);
+                });
+        },
+
+        eventDrop: function(info) {
+            updateEvent(info.event);
+        },
+        eventResize: function(info) {
+            updateEvent(info.event);
+        },
+
+        eventClick: function(info) {
+            if(confirm(`Xóa sự kiện "${info.event.title}"?`)) {
+                fetch(`/delete_Event/${info.event.id}/`,{
+                    method:"POST", // Sử dụng POST đi kèm CSRF để an toàn
+                    headers:{ 
+                        "X-CSRFToken": getCSRF(),
+                        "Content-Type": "application/json"
+                    }
+                })
+                .then(r=>r.json())
+                .then(d=>{ 
+                    if(d.success){ 
+                        info.event.remove(); 
+                        showToast(d.message, "success"); 
+                    } else {
+                        showToast(d.message, "danger");
+                    }
+                })
+            }
+        },
+
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false}
+    });
+
+    function updateEvent(e) {
+        const dateStr = e.start.toISOString().split("T")[0];
+        
+        // Format time HH:mm
+        function fmtTime(date) {
+            // Fix timezone for display/parsing if needed, but ISO string split is better for date
+            const h = date.getHours().toString().padStart(2, '0');
+            const m = date.getMinutes().toString().padStart(2, '0');
+            return `${h}:${m}`;
+        }
+
+        const payload = {
+            id: e.id,
+            title: e.title,
+            date: dateStr,
+            start_time: fmtTime(e.start),
+            end_time: fmtTime(e.end),
+            room: e.extendedProps.room || "",
+            teacher: e.extendedProps.teacher || "",
+            classname: e.extendedProps.Class || ""
+        };
+
+        fetch("/edit_Event/", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": getCSRF(),
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                console.log("✔ Cập nhật lịch thành công");
+            } else {
+                showToast("Lỗi: " + res.message, "danger");
+                location.reload(); // Reset UI nếu lỗi
+            }
+        });
+    }
+
+    calendar.render();
+
+    // Week Label
+    function updateWeekLabel() {
+        const s = calendar.view.currentStart;
+        const e = calendar.view.currentEnd;
+        document.getElementById("current_week_label").innerText = `${s.toLocaleDateString()} → ${e.toLocaleDateString()}`;
+    }
+    updateWeekLabel();
+    document.getElementById("prev_week").onclick = ()=>{calendar.prev(); updateWeekLabel();}
+    document.getElementById("next_week").onclick = ()=>{calendar.next(); updateWeekLabel();}
+    document.getElementById("jump_date").onchange = e=>{calendar.gotoDate(e.target.value); updateWeekLabel();}
+
+    // Thêm/Sửa thẻ
+    document.getElementById("open_add_modal").onclick = ()=>openTagModal();
+    window.openTagModal = function(tag=null){
+        const modalElement = document.getElementById("tagModal");
+        document.getElementById("edit_tag_id").value = tag?.dataset.id || "";
+        document.getElementById("tag_title").value = tag?.dataset.title || "";
+        document.getElementById("tag_class").value = tag?.dataset.classname || "";
+        document.getElementById("tag_room").value = tag?.dataset.room || "";
+        document.getElementById("tag_teacher").value = tag?.dataset.teacher || "";
+        // setDate với `false` để không trigger onChange events
+        try { startPicker.setDate(tag?.dataset.start || null, false); } catch(e){ console.warn(e); startEl.value = tag?.dataset.start || ""; }
+        try { endPicker.setDate(tag?.dataset.end || null, false); } catch(e){ console.warn(e); endEl.value = tag?.dataset.end || ""; }
+        document.getElementById("delete_tag").classList.toggle("d-none", !tag);
+        // ONLY show modal, do not trigger focus on inputs
+        new bootstrap.Modal(modalElement).show();
+    };
+
+    // wire open button and double-click handler (use global openTagModal)
+    document.getElementById("open_add_modal").addEventListener("click", ()=> openTagModal());
+    window.openEditTag = function(tag){ openTagModal(tag); };
+    document.getElementById("save_tag").onclick = async () => {
+        const id = document.getElementById("edit_tag_id").value;
+
+        const start = document.getElementById("tag_start").value;
+        const end = document.getElementById("tag_end").value;
+
+        if (!start || !end) {
+            showToast("Vui lòng chọn đầy đủ thời gian!", "warning");
+            return;
+        }
+
+        if (end <= start) {
+            showToast("Giờ kết thúc phải lớn hơn giờ bắt đầu!", "warning");
+            return;
+        }
+
+        const data = {
+            title: document.getElementById("tag_title").value.trim(),
+            classname: document.getElementById("tag_class").value.trim(),
+            start_time: start,
+            end_time: end,
+            room: document.getElementById("tag_room").value.trim(),
+            teacher: document.getElementById("tag_teacher").value.trim()
+        };
+
+        if (id) data.id = id;
+
+        const res = await postData(id ? "/edit_Tag/" : "/save_Tag/", data);
+        showToast(res.message, res.status === "success" ? "success" : "danger");
+        location.reload();
+    };
+
+
+    document.getElementById("delete_tag").onclick = async ()=>{
+        const id = document.getElementById("edit_tag_id").value;
+        if(!id || !confirm("Xóa thẻ này?")) return;
+        const res = await fetch(`/delete_Tag/${id}/`, {
+            method: "POST",
+            headers: { "X-CSRFToken": getCSRF() }
+        }).then(r=>r.json());
+        showToast(res.message || (res.success ? "Đã xóa" : "Lỗi"), res.success ? "success" : "danger");
+        location.reload();
+    }
+
+    // Draggable
+    new FullCalendar.Draggable(document.getElementById("external-events"), {
+        itemSelector: ".fc-event",
+        eventData: function(el) {
+
+
+            const startParts = (el.dataset.start || "08:00").split(":");
+            const endParts = el.dataset.end ? el.dataset.end.split(":") : null;
+
+            const today = new Date();
+            const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(startParts[0]), parseInt(startParts[1]));
+            const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(endParts[0]), parseInt(endParts[1]));
+
+            return {
+                title: el.dataset.title || "Không tên",
+                start: start,
+                end: end,
+                extendedProps: {
+                    room: el.dataset.room || "",
+                    Class: el.dataset.classname || "",
+                    teacher: el.dataset.teacher || "",
+                    startTimeParts: startParts,
+                    endTimeParts: endParts
+                }
+            };
+        }
+    });
+});
+</script>
+
+<style>
+.fc-event{ min-height:80px; font-size:0.9rem; white-space:normal; cursor:grab; box-shadow:0 1px 4px rgba(0,0,0,0.2); transition: transform 0.2s; }
+.fc-event:hover{ transform: scale(1.03); }
+.fc-event .fc-event-title{ font-weight:bold; }
+.fc-event .fc-event-time{ font-size:0.85rem; }
+.modal-body input{ font-size:0.95rem; }
+.alert{ transition:opacity 0.5s ease; }
+</style>
+{% endblock %}

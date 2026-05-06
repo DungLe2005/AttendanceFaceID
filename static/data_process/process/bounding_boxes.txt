@@ -1,0 +1,12 @@
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/hau\noise_center copy 2.png 206 184 406 452
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/hau\noise_center copy.png 198 180 406 456
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/hau\rotated_left_center copy 2.png 207 184 432 455
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/hau\rotated_left_center copy.png 207 184 432 455
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/hau\rotated_right_center copy 2.png 180 163 395 447
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/hau\rotated_right_center copy.png 180 163 395 447
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/Nguyen_Chi_ai\noise_center copy 2.png 201 202 404 459
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/Nguyen_Chi_ai\noise_center copy.png 199 202 404 459
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/Nguyen_Chi_ai\rotated_left_center copy 2.png 220 211 427 464
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/Nguyen_Chi_ai\rotated_left_center copy.png 220 211 427 464
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/Nguyen_Chi_ai\rotated_right_center copy 2.png 179 182 386 452
+C:/Users/dungl/OneDrive/Desktop/Employee-Management-System/static/data_process/process/Nguyen_Chi_ai\rotated_right_center copy.png 179 182 386 452

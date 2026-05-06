@@ -1,0 +1,194 @@
+{% extends "admin_base.html" %}
+
+{% block main %}
+
+<h2 class="mb-3">Quản lý điểm danh</h2>
+
+<div class="row">
+
+  <!-- BẢNG SINH VIÊN -->
+  <div class="col-md-12 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h4>Điểm danh Sinh viên</h4>
+    </div>
+
+    <!-- Bộ lọc Sinh viên -->
+    <form method="get" class="row g-2 mb-3">
+      <!-- Hidden fields to preserve Teacher filters -->
+      <input type="hidden" name="t_date" value="{{ t_date }}">
+      <input type="hidden" name="t_name" value="{{ request.GET.t_name|default:'' }}">
+      <input type="hidden" name="t_shift" value="{{ request.GET.t_shift|default:'' }}">
+
+      <div class="col-md-2">
+        <input type="date" name="s_date" class="form-control"
+               value="{{ s_date }}">
+      </div>
+
+      <div class="col-md-2">
+        <input type="text" name="s_name" class="form-control"
+               placeholder="Tên"
+               value="{{ request.GET.s_name|default:'' }}">
+      </div>
+
+      <div class="col-md-2">
+        <input type="text" name="s_code" class="form-control"
+               placeholder="Mã SV"
+               value="{{ request.GET.s_code|default:'' }}">
+      </div>
+
+      <div class="col-md-3">
+        <input type="text" name="s_subject" class="form-control"
+               placeholder="Môn học"
+               value="{{ request.GET.s_subject|default:'' }}">
+      </div>
+
+      <div class="col-md-3">
+        <div class="row g-2">
+          <div class="col-4">
+            <button type="submit" class="btn btn-primary w-100">Lọc</button>
+          </div>
+          <div class="col-4">
+            <a href="{% url 'export_attendance' %}?filter=student&s_date={{ s_date }}&s_name={{ request.GET.s_name|default:'' }}&s_code={{ request.GET.s_code|default:'' }}&s_subject={{ request.GET.s_subject|default:'' }}" 
+               class="btn btn-success w-100">Xuất</a>
+          </div>
+          <div class="col-4">
+            <button type="reset" class="btn btn-secondary w-100"
+                    onclick="window.location.href='{% url 'ad_attendance' %}'">
+              Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </form>
+
+    <table class="table table-bordered table-striped text-center">
+      <thead class="table-success">
+        <tr>
+          <th>Ngày</th>
+          <th>Mã SV</th>
+          <th>Tên</th>
+          <th>Môn học</th>
+          <th>Giờ Vào</th>
+          <th>Giờ Ra</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in student_attendance %}
+        <tr>
+          <td>{{ a.date }}</td>
+          <td>{{ a.emcode }}</td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.subject }}</td>
+          <td>{{ a.checkin }}</td>
+          <td>{{ a.checkout }}</td>
+          <td>
+            <a href="{% url 'delete_Attendence' a.id %}"
+               class="btn btn-danger btn-sm"
+               onclick="return confirm('Xóa bản ghi này?');">
+               Xóa
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">Chưa có dữ liệu</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BẢNG GIÁO VIÊN -->
+  <div class="col-md-12">
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h4>Điểm danh Giáo viên / Nhân viên</h4>
+    </div>
+
+    <!-- Bộ lọc Giáo viên -->
+    <form method="get" class="row g-2 mb-3">
+      <!-- Hidden fields to preserve Student filters -->
+      <input type="hidden" name="s_date" value="{{ s_date }}">
+      <input type="hidden" name="s_name" value="{{ request.GET.s_name|default:'' }}">
+      <input type="hidden" name="s_code" value="{{ request.GET.s_code|default:'' }}">
+      <input type="hidden" name="s_subject" value="{{ request.GET.s_subject|default:'' }}">
+
+      <div class="col-md-3">
+        <input type="date" name="t_date" class="form-control"
+               value="{{ t_date }}">
+      </div>
+
+      <div class="col-md-3">
+        <input type="text" name="t_name" class="form-control"
+               placeholder="Tìm theo tên"
+               value="{{ request.GET.t_name|default:'' }}">
+      </div>
+
+      <div class="col-md-3">
+        <select name="t_shift" class="form-select">
+          <option value="">-- Ca làm việc --</option>
+          <option value="Sáng" {% if request.GET.t_shift == "Sáng" %}selected{% endif %}>Sáng</option>
+          <option value="Chiều" {% if request.GET.t_shift == "Chiều" %}selected{% endif %}>Chiều</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <div class="row g-2">
+          <div class="col-4">
+            <button type="submit" class="btn btn-primary w-100">Lọc</button>
+          </div>
+          <div class="col-4">
+            <a href="{% url 'export_attendance' %}?filter=teacher&t_date={{ t_date }}&t_name={{ request.GET.t_name|default:'' }}&t_shift={{ request.GET.t_shift|default:'' }}" 
+               class="btn btn-success w-100">Xuất</a>
+          </div>
+          <div class="col-4">
+            <button type="reset" class="btn btn-secondary w-100"
+                    onclick="window.location.href='{% url 'ad_attendance' %}'">
+              Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+
+
+    </form>
+
+    <table class="table table-bordered table-striped text-center">
+      <thead class="table-info">
+        <tr>
+          <th>Ngày</th>
+          <th>Mã NV</th>
+          <th>Tên</th>
+          <th>Ca</th>
+          <th>Giờ Vào</th>
+          <th>Giờ Ra</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in teacher_attendance %}
+        <tr>
+          <td>{{ a.date }}</td>
+          <td>{{ a.emcode }}</td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.shift }}</td>
+          <td>{{ a.checkin }}</td>
+          <td>{{ a.checkout }}</td>
+          <td>
+            <a href="{% url 'delete_Attendence' a.id %}"
+               class="btn btn-danger btn-sm"
+               onclick="return confirm('Xóa bản ghi này?');">
+               Xóa
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">Chưa có dữ liệu</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+
+.nav-link {
+    color: white !important;
+}
+
+.nav-link:hover {
+    color: rgb(246, 6, 6) !important;
+    background: whitesmoke;
+    border-radius: 10px;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.active {
+    background-color: orange;
+    border-radius: 30px;
+}
+
+.table-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.action-btn {
+    cursor: pointer;
+}
+
+.filter-card {
+    border-left: 4px solid #007bff;
+}
+
+.badge-faceid {
+    font-size: 90%;
+}

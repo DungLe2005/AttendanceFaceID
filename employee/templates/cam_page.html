@@ -1,0 +1,85 @@
+{% extends 'admin_base.html' %}
+
+{% block main %}
+<video id="video" width="640" height="480" autoplay muted playsinline style="border:1px solid #333; border-radius:6px;"></video>
+<canvas id="canvas" width="640" height="480" style="position:absolute; top:0; left:0;"></canvas>
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+
+async function startCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video:{width:640,height:480} });
+        video.srcObject = stream;
+        await video.play();
+        showToast("Camera đã khởi động thành công.");
+        setInterval(sendFrame, 1000); // gửi frame mỗi giây
+    } catch(e) {
+        showToast("Lỗi khởi động camera: " + e.message, "danger");
+    }
+}
+
+function captureFrame() {
+    const tmpCanvas = document.createElement("canvas");
+    tmpCanvas.width = video.videoWidth;
+    tmpCanvas.height = video.videoHeight;
+    const tmpCtx = tmpCanvas.getContext("2d");
+    tmpCtx.drawImage(video, 0, 0, tmpCanvas.width, tmpCanvas.height);
+    return tmpCanvas.toDataURL("image/jpeg", 0.7);
+}
+
+async function sendFrame() {
+    const dataUrl = captureFrame();
+    const fd = new FormData();
+    fd.append("camera", "{{ camera_label }}");
+    fd.append("frame", dataUrl);
+
+    let res;  
+
+    try {
+        if ("{{camera_label}}" === "Camera cổng trường") {
+            res = await fetch("{% url 'track_post_in' %}", { method:"POST", body: fd });
+        } else {
+            res = await fetch("{% url 'track_post_out' %}", { method:"POST", body: fd });
+        }
+
+        if (!res.ok) {
+            showToast("Lỗi từ server: " + res.statusText, "danger");
+            return;
+        }
+
+        const data = await res.json();
+        drawPeople(data.people);
+
+        // Nếu có message từ server thì hiển thị
+        if (data.message) {
+            showToast(data.message);
+        }
+
+
+    } catch (e) {
+        showToast("Lỗi gửi frame: " + e.message, "danger");
+    }
+}
+
+
+function drawPeople(people) {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    people.forEach(p=>{
+        const [x1,y1,x2,y2] = p.bbox;
+        ctx.strokeStyle = (p.type=="known")?"lime":"red";
+        ctx.lineWidth=2;
+        ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+        ctx.fillStyle = ctx.strokeStyle;
+        const label = (p.type=="known")?p.name:p.id;
+        ctx.fillText(label,x1+4,y1-4);
+    });
+}
+
+
+startCamera();
+</script>
+
+{% endblock %}
