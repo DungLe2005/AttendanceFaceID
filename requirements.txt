@@ -1,5 +1,5 @@
 channels==4.3.2
-Django==6.0.4
+Django==6.0.5
 imageio==2.37.2
 imutils==0.5.4
 mediapipe==0.10.14
@@ -16,6 +16,8 @@ scipy==1.17.1
 six==1.17.0
 tensorflow==2.13.1
 tensorflow_intel==2.13.1
+torch==2.5.1+cu121
 tqdm==4.67.1
 ultralytics==8.4.33
 Unidecode==1.4.0
+~orch==2.0.1
