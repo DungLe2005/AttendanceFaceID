@@ -8,8 +8,8 @@ const char* WIFI_SSID = "PHCM_NCKH";
 const char* WIFI_PASS = "giangvien";
 
 // Cấu hình Firebase
-#define API_KEY "AIzaSyDc9DEnW10gZpK_asZDsv3zE0_IUqoNSIY"
-#define DATABASE_URL "ip-iot-b2664-default-rtdb.firebaseio.com"
+#define API_KEY "AIzaSyACWD3B8FXuONI6oWOnbTtJRT92lJDD-84"
+#define DATABASE_URL "attendancefaceid-5e07a.firebaseapp.com"
 #define USER_EMAIL "iotbdu@gmail.com"
 #define USER_PASSWORD "123456"
 
